@@ -203,7 +203,7 @@ class DeepCFR():
                 init_state, init_player = self._env.init_game()
                 self._root_node = init_state
             for _ in range(self._num_traversals):
-                self._traverse_game_tree(self._root_node, init_player,1)
+                self._traverse_game_tree(self._root_node, init_player)
 
             # Re-initialize advantage networks and train from scratch.
             self.reinitialize_advantage_networks()
@@ -300,8 +300,7 @@ class DeepCFR():
         expected_payoff = collections.defaultdict(float)
         current_player = self._env.get_player_id()
         actions = state['legal_actions']
-        if 19 in actions:
-            a = 1
+
         if self._env.is_over():
             # Terminal state get returns.
             payoff = self._env.get_payoffs()

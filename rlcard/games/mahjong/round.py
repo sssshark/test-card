@@ -62,17 +62,20 @@ class MahjongRound(object):
             self.valid_act = False
 
         else: # Play game: Proceed to next player
-            players[self.current_player].play_card(self.dealer, action)
+            players[self.current_player].play_card(self.dealer, action) # 当前玩家先打一张牌
             self.player_before_act = self.current_player
             self.last_player = self.current_player
-            (pong_gong_act, player, pong_gong_cards) = self.judger.judge_pong_gong(self.dealer, players, self.last_player)
-            (chow_act, player, chow_cards) = self.judger.judge_chow(self.dealer, players, self.last_player)
+            #到此 此玩家的操作已结束
+
+            # 接下来是下一个玩家的操作
+            self.current_player = (self.current_player + 1) % self.num_players
+            (pong_gong_act, player, pong_gong_cards) = self.judger.judge_pong_gong(self.dealer, players, self.last_player) # 判断下一个玩家要不要这个牌
+            (chow_act, player, chow_cards) = self.judger.judge_chow(self.dealer, players, self.last_player)# 判断下一个玩家要不要这个牌
             valid_act = pong_gong_act + chow_act
             action_cards = pong_gong_cards + chow_cards
             if valid_act:
                 self.valid_act = valid_act
                 self.last_cards = action_cards
-                self.current_player = (self.current_player + 1) % self.num_players
             else:
                 #  (kw)
                 # (valid_act, player, cards) = self.judger.judge_chow(self.dealer, players, self.last_player)
@@ -81,8 +84,6 @@ class MahjongRound(object):
                 #     self.last_cards = cards
                 #     self.current_player = player.player_id
                 # else:
-
-                self.current_player = (self.current_player + 1) % self.num_players
                 self.dealer.deal_cards(players[self.current_player], 1)
 
         #hand_len = [len(p.hand) for p in players]
