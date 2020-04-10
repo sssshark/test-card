@@ -203,7 +203,7 @@ class DeepCFR():
                 init_state, init_player = self._env.init_game()
                 self._root_node = init_state
             for _ in range(self._num_traversals):
-                self._traverse_game_tree(self._root_node, init_player)
+                self._traverse_game_tree(self._root_node, init_player,1)
 
             # Re-initialize advantage networks and train from scratch.
             self.reinitialize_advantage_networks()
@@ -300,6 +300,8 @@ class DeepCFR():
         expected_payoff = collections.defaultdict(float)
         current_player = self._env.get_player_id()
         actions = state['legal_actions']
+        if 19 in actions:
+            a = 1
         if self._env.is_over():
             # Terminal state get returns.
             payoff = self._env.get_payoffs()
@@ -317,9 +319,7 @@ class DeepCFR():
             for action in actions:
                 child_state, _ = self._env.step(action)
                 self.traverse.append((action, state, child_state))
-                expected_payoff[action] = self._traverse_game_tree(child_state, player)
-            for _ in range(self._env.player_num):
-                self._env.step_back()
+                expected_payoff[action] = self._traverse_game_tree(child_state, player, count * len(actions))
 
             for action in actions:
                 sampled_regret[action] = expected_payoff[action][player]
@@ -328,6 +328,12 @@ class DeepCFR():
             for act in actions:
                 self._advantage_memories[player].add(AdvantageMemory(state['obs'].flatten(), self._iteration, sampled_regret[act], act))
             players_payoff = [max(expected_payoff[act_]) for act_ in expected_payoff.keys()]
+
+            self._env.step_back()
+
+            while current_player != self._env.game.round.current_player:
+                self._env.step_back()
+
             return players_payoff
         else:
             other_player = current_player
@@ -341,7 +347,7 @@ class DeepCFR():
                 StrategyMemory(
                     state['obs'].flatten(),
                     self._iteration, strategy))
-            return self._traverse_game_tree(child_state, player)
+            return self._traverse_game_tree(child_state, player, count)
 
     def _sample_action_from_advantage(self, state, player):
         ''' Returns an info state policy by applying regret-matching.
