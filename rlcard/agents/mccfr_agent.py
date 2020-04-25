@@ -6,6 +6,7 @@ import pickle
 
 from rlcard.utils.utils import *
 import time
+from rlcard.games.mahjong.card import MahjongCard as Card
 
 class MCCFRAgent():
     ''' Implement CFR algorithm
@@ -16,6 +17,8 @@ class MCCFRAgent():
         Args:
             env (Env): Env class
         '''
+        self.all_actions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'green', 'red', 'white', 'east', 'west', 'north', 'south', 'peng', 'chi', 'gang', 'guo']
+
         self.use_raw = False
         self.env = env
         self.model_path = model_path
@@ -56,6 +59,57 @@ class MCCFRAgent():
     # def _add_regret(self, info_state_key, action_idx, amount):
     #     self._infostates[info_state_key][_REGRET_INDEX][action_idx] += amount
 
+    def eval_step(self):
+        current_player = 0
+        info_state_key, legal_actions = self.get_state(current_player)
+
+        num_legal_actions = len(legal_actions)
+        action_probs = self.action_probs(info_state_key, legal_actions, self.policy)
+        # print(action_probs)
+
+        sampled_action_idx = np.random.choice(
+            np.arange(num_legal_actions), p=action_probs)
+        # print(legal_actions[sampled_action_idx])
+        print(self.all_actions[legal_actions[sampled_action_idx]])
+        self.env.step(legal_actions[sampled_action_idx])
+    def show_actions(self):
+        current_player = 1
+        info_state_key, legal_actions = self.get_state(current_player)
+        # print(legal_actions)
+
+
+        sort_action = sorted(legal_actions)
+        print(sort_action)
+        print([self.all_actions[action_id] for action_id in sort_action])
+
+    def do_actions(self, action):
+
+        self.env.step(action)
+
+    def update_policy(self):
+        ''' Update policy based on the current regrets
+        '''
+        for obs in self.regrets:
+            self.policy[obs] = self.regret_matching(obs)
+
+    def regret_matching(self, obs):
+        ''' Apply regret matching
+
+        Args:
+            obs (string): The state_str
+        '''
+        regret = self.regrets[obs]
+        positive_regret_sum = sum([r for r in regret if r > 0])
+
+        action_probs = np.zeros(self.env.action_num)
+        if positive_regret_sum > 0:
+            for action in range(self.env.action_num):
+                action_probs[action] = max(0.0, regret[action] / positive_regret_sum)
+        else:
+            for action in range(self.env.action_num):
+                action_probs[action] = 1.0 / self.env.action_num
+        return action_probs
+
     def train(self):
         """Performs one iteration of outcome sampling.
 
@@ -71,6 +125,7 @@ class MCCFRAgent():
             # probs = np.ones(self.env.player_num)
             self.traverse_tree(player_id, my_reach=1.0, opp_reach=1.0, sample_reach=1.0)
 
+        self.update_policy()
     def traverse_tree(self, update_player, my_reach, opp_reach, sample_reach):
         """Runs an episode of outcome sampling.
 
@@ -168,46 +223,47 @@ class MCCFRAgent():
         '''
         state = self.env.get_state(player_id)
         return state['obs'].tostring(), state['legal_actions']
-    def save(self):
+    def save(self, iter):
         ''' Save model
         '''
-        if not os.path.exists(self.model_path):
-            os.makedirs(self.model_path)
 
-        policy_file = open(os.path.join(self.model_path, 'policy.pkl'),'wb')
+        if not os.path.exists(self.model_path + '/' + str(iter)):
+            os.makedirs(self.model_path + '/' + str(iter))
+
+        policy_file = open(os.path.join(self.model_path, str(iter), 'policy.pkl'),'wb')
         pickle.dump(self.policy, policy_file)
         policy_file.close()
 
-        average_policy_file = open(os.path.join(self.model_path, 'average_policy.pkl'),'wb')
+        average_policy_file = open(os.path.join(self.model_path, str(iter), 'average_policy.pkl'),'wb')
         pickle.dump(self.average_policy, average_policy_file)
         average_policy_file.close()
 
-        regrets_file = open(os.path.join(self.model_path, 'regrets.pkl'),'wb')
+        regrets_file = open(os.path.join(self.model_path, str(iter), 'regrets.pkl'),'wb')
         pickle.dump(self.regrets, regrets_file)
         regrets_file.close()
 
-        iteration_file = open(os.path.join(self.model_path, 'iteration.pkl'),'wb')
+        iteration_file = open(os.path.join(self.model_path, str(iter), 'iteration.pkl'),'wb')
         pickle.dump(self.iteration, iteration_file)
         iteration_file.close()
 
-    def load(self):
+    def load(self, iter):
         ''' Load model
         '''
-        if not os.path.exists(self.model_path):
+        if not os.path.exists(self.model_path + '/' + str(iter)):
             return
 
-        policy_file = open(os.path.join(self.model_path, 'policy.pkl'),'rb')
+        policy_file = open(os.path.join(self.model_path, str(iter), 'policy.pkl'),'rb')
         self.policy = pickle.load(policy_file)
         policy_file.close()
 
-        average_policy_file = open(os.path.join(self.model_path, 'average_policy.pkl'),'rb')
+        average_policy_file = open(os.path.join(self.model_path, str(iter), 'average_policy.pkl'),'rb')
         self.average_policy = pickle.load(average_policy_file)
         average_policy_file.close()
 
-        regrets_file = open(os.path.join(self.model_path, 'regrets.pkl'),'rb')
+        regrets_file = open(os.path.join(self.model_path, str(iter), 'regrets.pkl'),'rb')
         self.regrets = pickle.load(regrets_file)
         regrets_file.close()
 
-        iteration_file = open(os.path.join(self.model_path, 'iteration.pkl'),'rb')
+        iteration_file = open(os.path.join(self.model_path, str(iter), 'iteration.pkl'),'rb')
         self.iteration = pickle.load(iteration_file)
         iteration_file.close()
